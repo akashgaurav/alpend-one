@@ -167,9 +167,8 @@ function BONEBadge({ size = 28 }) {
   )
 }
 
-// ONE coin logomark — uses one-coin.svg asset
 function ONEMark({ size = 28 }) {
-  return <img src="/one-coin.svg" width={size} height={size} alt="ONE" style={{ display: 'block', borderRadius: '50%' }} />
+  return <img src="/one-token.webp" width={size} height={size} alt="ONE" style={{ display: 'block', borderRadius: '50%' }} />
 }
 
 // ─── PRIMITIVE COMPONENTS ─────────────────────────────────────────────────────
@@ -461,14 +460,8 @@ function Nav({ connected, onConnect, onLogout }) {
       background: '#071e1e',
       borderBottom: '1px solid #0d2424',
     }}>
-      <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-        <ONEMark size={28} />
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>
-            <span className="grad-text">ONE</span>
-          </div>
-          <div style={{ fontSize: 10, color: '#4a7878', letterSpacing: '0.14em', textTransform: 'uppercase', marginTop: 2 }}>by Alpend</div>
-        </div>
+      <Link to="/" style={{ textDecoration: 'none' }}>
+        <img src="/one-logo.webp" alt="ONE" style={{ height: 30, width: 'auto', display: 'block' }} />
       </Link>
 
       <div />
@@ -1960,15 +1953,7 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
 
         {/* Brand header bar — ONE logo top-left */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, height: 56, display: 'flex', alignItems: 'center', padding: '0 32px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #14b8a6, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ fontSize: 15, fontWeight: 900, color: '#041a19', lineHeight: 1 }}>1</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <span style={{ fontSize: 14, fontWeight: 800, color: C.teal, letterSpacing: '-0.01em', lineHeight: 1 }}>ONE</span>
-              <span style={{ fontSize: 9, fontWeight: 600, color: '#3a6666', letterSpacing: '0.12em', lineHeight: 1, textTransform: 'uppercase' }}>by Alpend</span>
-            </div>
-          </div>
+          <img src="/one-logo.webp" alt="ONE" style={{ height: 30, width: 'auto', display: 'block' }} />
         </div>
 
         {/* Soft central bloom — fixed so it covers viewport */}
@@ -1990,9 +1975,7 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
             <div style={{ position: 'relative', display: 'inline-flex', marginBottom: 28 }}>
               <div style={{ position: 'absolute', inset: -10, borderRadius: '50%', border: '1px solid #14b8a620', animation: 'a-pulse 2.4s ease-in-out infinite' }} />
               <div style={{ position: 'absolute', inset: -22, borderRadius: '50%', border: '1px solid #14b8a60c', animation: 'a-pulse 2.4s ease-in-out 0.8s infinite' }} />
-              <div style={{ width: 68, height: 68, borderRadius: '50%', background: 'linear-gradient(135deg, #14b8a6, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 28px #14b8a635, 0 0 56px #14b8a614' }}>
-                <span style={{ fontSize: 30, fontWeight: 900, color: '#041a19', fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-1px', lineHeight: 1 }}>1</span>
-              </div>
+              <img src="/one-token.webp" width={68} height={68} alt="ONE" style={{ display: 'block', borderRadius: '50%', boxShadow: '0 0 28px #14b8a635, 0 0 56px #14b8a614' }} />
             </div>
 
             {/* Headline */}
@@ -2063,7 +2046,8 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 28 }}>
             <div>
               <div style={{ fontSize: 11, color: '#4a7878', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Your Balance</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+                <ONEMark size={52} />
                 <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', letterSpacing: '-0.04em', fontFamily: 'JetBrains Mono, monospace', lineHeight: 1 }}>
                   {walletONE.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
@@ -2075,20 +2059,18 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
             </div>
 
             {walletUSDCx > 0 ? (
-              <div style={{ background: '#071818', border: `1px solid ${C.teal}33`, borderRadius: 12, padding: '14px 18px', minWidth: 230 }}>
+              <div style={{ background: '#071818', border: `1px solid ${isNewUser ? C.teal + '33' : '#1a3535'}`, borderRadius: 12, padding: '14px 18px', minWidth: 230 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <USDCxBadge size={16} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>
-                      {walletUSDCx.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDCx available
+                    <span style={{ fontSize: 13, fontWeight: 700, color: isNewUser ? '#fff' : '#7ababa' }}>
+                      {walletUSDCx.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDCx
                     </span>
                   </div>
-                  <button onClick={() => setWalletUSDCx(0)} style={{ fontSize: 10, color: '#3a6060', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
-                    ✕ demo
-                  </button>
+                  <button onClick={() => setWalletUSDCx(0)} style={{ fontSize: 10, color: '#3a6060', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>✕ demo</button>
                 </div>
-                <div style={{ fontSize: 12, color: '#7ababa', lineHeight: 1.5, marginBottom: isNewUser ? 10 : 0 }}>
-                  {isNewUser ? 'Swap to ONE to get started — 1:1, no fee' : 'Swap to ONE at 1:1 via DVP, no fee'}
+                <div style={{ fontSize: 12, color: isNewUser ? '#7ababa' : '#3a6060', lineHeight: 1.5, marginBottom: isNewUser ? 10 : 0 }}>
+                  {isNewUser ? 'Swap to ONE to get started — 1:1, no fee' : 'Available to swap · 1:1, no fee'}
                 </div>
                 {isNewUser && (
                   <button onClick={() => { const el = document.getElementById('dvp-panel'); el?.scrollIntoView({ behavior: 'smooth' }); setTimeout(() => swapInputRef.current?.focus(), 350) }}
@@ -2097,24 +2079,18 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
                   </button>
                 )}
               </div>
-            ) : walletONE === 0 && (
-              <div style={{ background: '#071818', border: '1px solid #1e4040', borderRadius: 12, padding: '14px 18px', minWidth: 230 }}>
+            ) : (
+              <div style={{ background: '#071818', border: '1px solid #0d2424', borderRadius: 12, padding: '14px 18px', minWidth: 230 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <USDCxBadge size={16} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>No USDCx in Loop wallet</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#4a7878' }}>0.00 USDCx</span>
                   </div>
-                  <button onClick={() => setWalletUSDCx(1000)} style={{ fontSize: 10, color: '#3a6060', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
-                    + demo
-                  </button>
+                  <button onClick={() => setWalletUSDCx(1000)} style={{ fontSize: 10, color: '#3a6060', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>+ demo</button>
                 </div>
-                <div style={{ fontSize: 12, color: '#4a7878', lineHeight: 1.55, marginBottom: 10 }}>
-                  You need USDCx to buy ONE. Get USDCx on Loop to get started.
+                <div style={{ fontSize: 12, color: '#2a4848', lineHeight: 1.55 }}>
+                  {isNewUser ? 'Get USDCx on Loop to buy ONE.' : 'Top up USDCx on Loop to swap more ONE.'}
                 </div>
-                <a href="https://tradecraft.fi" target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 12, fontWeight: 700, color: C.teal, textDecoration: 'none' }}>
-                  Get USDCx →
-                </a>
               </div>
             )}
           </div>
@@ -2162,15 +2138,14 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
             </div>
 
             {swapDone ? (
-              <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{ width: 48, height: 48, borderRadius: '50%', background: `${C.green}15`, border: `1px solid ${C.green}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+              <div style={{ textAlign: 'center', padding: '32px 0 24px' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: `${C.green}15`, border: `1px solid ${C.green}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                   <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><path d="M4 11l5 5 9-9" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Swap Settled</div>
-                <div style={{ fontSize: 13, color: '#7ababa', marginBottom: 2 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', marginBottom: 8 }}>Swap Settled</div>
+                <div style={{ fontSize: 13, color: '#7ababa', marginBottom: 28 }}>
                   {lastSwap?.amt.toFixed(2)} {lastSwap?.from} → {lastSwap?.amt.toFixed(2)} {lastSwap?.to}
                 </div>
-                <div style={{ fontSize: 11, color: '#4a7878', marginBottom: 20 }}>Instant · Atomic · DVP</div>
 
                 <button onClick={() => { setSwapDone(false); setSwapAmt(''); setLastSwap(null) }}
                   style={{ padding: '9px 28px', borderRadius: 100, background: 'linear-gradient(135deg, #14b8a6, #0d9488)', color: '#071e1e', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer' }}>
