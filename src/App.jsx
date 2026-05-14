@@ -125,6 +125,18 @@ function Footer() {
     </footer>
   )
 }
+function EmptyState({ icon, title, hint, compact = false }) {
+  return (
+    <div style={{ textAlign: 'center', padding: compact ? '20px 16px' : '36px 16px' }}>
+      <div style={{ width: 38, height: 38, borderRadius: 11, background: '#0a2020', border: '1px solid #163535', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px', color: '#2a5050' }}>
+        {icon}
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#3a6060', marginBottom: hint ? 4 : 0 }}>{title}</div>
+      {hint && <div style={{ fontSize: 11.5, color: '#1e3838', marginTop: 3, maxWidth: 220, margin: '3px auto 0' }}>{hint}</div>}
+    </div>
+  )
+}
+
 function IcoSend()     { return <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L6.5 8.5M13 2L9 13l-2.5-4.5L2 6l11-4z"/></svg> }
 function IcoReceive()  { return <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M7.5 2v8M4.5 7l3 3 3-3"/><path d="M2 12h11"/></svg> }
 function IcoSwapH()    { return <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 5h11M10 2l3 3-3 3"/><path d="M13 10H2M5 7l-3 3 3 3"/></svg> }
@@ -678,24 +690,36 @@ function Dashboard({ connected, onConnect, vault, onVaultClose, walletONE = 0 })
 
           {/* Position History */}
           <Collapse title="Position History" icon={<IcoSpark />}>
-            <div style={{ overflowX: 'auto', paddingTop: 8 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead>
-                  <tr>{['Time', 'Action', 'CC Change', 'ONE Change', 'Result'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '6px 0 10px', color: C.muted, fontWeight: 600, fontSize: 11, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{h}</th>
-                  ))}</tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ padding: '10px 0', color: C.muted }}>May 13, 2026 · 09:42</td>
-                    <td style={{ padding: '10px 0' }}><span style={{ padding: '3px 8px', borderRadius: 100, background: 'rgba(20,184,166,0.1)', border: `1px solid ${C.teal}33`, fontSize: 11, fontWeight: 700, color: C.teal }}>OPEN</span></td>
-                    <td style={{ padding: '10px 0', color: C.green, fontFamily: 'JetBrains Mono, monospace' }}>+{vault.ccAmount.toLocaleString()} CC</td>
-                    <td style={{ padding: '10px 0', color: C.cyan, fontFamily: 'JetBrains Mono, monospace' }}>+{vault.oneDebt.toLocaleString()} ONE</td>
-                    <td style={{ padding: '10px 0', color: '#fff' }}>LTV {risk.ltv.toFixed(1)}%</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            {(() => {
+              const histRows = [
+                { time: 'May 13, 2026 · 09:42', action: 'OPEN', ccChange: `+${vault.ccAmount.toLocaleString()} CC`, oneChange: `+${vault.oneDebt.toLocaleString()} ONE`, result: `LTV ${risk.ltv.toFixed(1)}%` },
+              ]
+              if (histRows.length === 0) return (
+                <EmptyState icon={<IcoSpark />} title="No history yet" hint="Deposits, withdrawals, mints, and repayments will appear here." compact />
+              )
+              return (
+                <div style={{ overflowX: 'auto', paddingTop: 8 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr>{['Time', 'Action', 'CC Change', 'ONE Change', 'Result'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '6px 0 10px', color: C.muted, fontWeight: 600, fontSize: 11, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{h}</th>
+                      ))}</tr>
+                    </thead>
+                    <tbody>
+                      {histRows.map((row, i) => (
+                        <tr key={i}>
+                          <td style={{ padding: '10px 0', color: C.muted }}>{row.time}</td>
+                          <td style={{ padding: '10px 0' }}><span style={{ padding: '3px 8px', borderRadius: 100, background: 'rgba(20,184,166,0.1)', border: `1px solid ${C.teal}33`, fontSize: 11, fontWeight: 700, color: C.teal }}>{row.action}</span></td>
+                          <td style={{ padding: '10px 0', color: C.green, fontFamily: 'JetBrains Mono, monospace' }}>{row.ccChange}</td>
+                          <td style={{ padding: '10px 0', color: C.cyan, fontFamily: 'JetBrains Mono, monospace' }}>{row.oneChange}</td>
+                          <td style={{ padding: '10px 0', color: '#fff' }}>{row.result}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })()}
           </Collapse>
 
           {/* Loan Terms */}
@@ -1523,22 +1547,28 @@ function EarnPage({ connected, onConnect }) {
               <span style={{ fontSize: 12, color: C.muted, fontWeight: 400 }}>Gains auto-compounded → bONE rate ↑</span>
             </div>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>CC received → swapped to ONE → compounded</div>
-            {[
-              { time: '2h ago',  ccUSD: '$4,200',  gain: '+$420',  oneAdded: '+4,200 ONE', cc: '28,000 CC' },
-              { time: '11h ago', ccUSD: '$1,900',  gain: '+$190',  oneAdded: '+1,900 ONE', cc: '12,667 CC' },
-              { time: '2d ago',  ccUSD: '$8,100',  gain: '+$810',  oneAdded: '+8,100 ONE', cc: '54,000 CC' },
-            ].map((l, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < 2 ? `1px solid ${C.border}` : 'none' }}>
-                <div>
-                  <div style={{ fontSize: 12, color: '#fff', fontWeight: 500 }}>CC vault liquidated</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{l.time} · {l.cc} absorbed · {l.ccUSD}</div>
+            {(() => {
+              const liqEvents = [
+                { time: '2h ago',  ccUSD: '$4,200', gain: '+$420', oneAdded: '+4,200 ONE', cc: '28,000 CC' },
+                { time: '11h ago', ccUSD: '$1,900', gain: '+$190', oneAdded: '+1,900 ONE', cc: '12,667 CC' },
+                { time: '2d ago',  ccUSD: '$8,100', gain: '+$810', oneAdded: '+8,100 ONE', cc: '54,000 CC' },
+              ]
+              if (liqEvents.length === 0) return (
+                <EmptyState icon={<IcoShield />} title="No liquidations yet" hint="When undercollateralized vaults are liquidated, gains compound into your bONE." compact />
+              )
+              return liqEvents.map((l, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < liqEvents.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#fff', fontWeight: 500 }}>CC vault liquidated</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{l.time} · {l.cc} absorbed · {l.ccUSD}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.green, fontFamily: 'JetBrains Mono, monospace' }}>{l.gain}</div>
+                    <div style={{ fontSize: 12, color: C.muted }}>{l.oneAdded} compounded</div>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: C.green, fontFamily: 'JetBrains Mono, monospace' }}>{l.gain}</div>
-                  <div style={{ fontSize: 12, color: C.muted }}>{l.oneAdded} compounded</div>
-                </div>
-              </div>
-            ))}
+              ))
+            })()}
           </Card>
         </div>
 
@@ -2245,7 +2275,7 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
 
             <div style={{ flex: 1 }}>
               {filteredHist.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '32px 0', color: '#2a5050', fontSize: 13 }}>No activity</div>
+                <EmptyState icon={<IcoSwapH />} title="No transactions yet" hint="Your swaps, sends, and receives will appear here." compact />
               ) : (() => {
                 const LIMIT = 5
                 const visible = filteredHist.slice(0, LIMIT)
@@ -2396,7 +2426,11 @@ function WalletActivityPage() {
         </div>
 
         {filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 0', color: '#2a5050', fontSize: 13 }}>No matching transactions</div>
+          <EmptyState
+            icon={<IcoSwapH />}
+            title={WALLET_HISTORY.length === 0 ? 'No transactions yet' : 'No matching transactions'}
+            hint={WALLET_HISTORY.length === 0 ? 'Your transaction history will appear here once you start using ONE.' : 'Try clearing the search or switching filters.'}
+          />
         ) : (
           filtered.map((tx, i) => {
             const isApp = tx.icon === 'app' && tx.app
