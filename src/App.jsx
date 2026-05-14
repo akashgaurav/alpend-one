@@ -2429,6 +2429,49 @@ function WalletActivityPage() {
 
 // ─── APP SHELL ────────────────────────────────────────────────────────────────
 
+const SITEMAP = [
+  { path: '/explore',         label: 'Wallet / Connect',    desc: 'Connect Loop wallet, whitelist check, ONE balance, swap, send/receive' },
+  { path: '/wallet/activity', label: 'Activity',            desc: 'Transaction history for the connected wallet' },
+  { path: '/vault',           label: 'Dashboard',           desc: 'Protocol overview, vault summary, collateral health' },
+  { path: '/open',            label: 'Open Vault',          desc: 'Two-step modal: pick collateral → set deposit and mint amounts' },
+  { path: '/vault/deposit',   label: 'Vault → Deposit',     desc: 'Add CC collateral to existing vault' },
+  { path: '/vault/withdraw',  label: 'Vault → Withdraw',    desc: 'Remove CC collateral (within LTV limit)' },
+  { path: '/vault/mint',      label: 'Vault → Mint ONE',    desc: 'Draw additional ONE against existing collateral' },
+  { path: '/vault/repay',     label: 'Vault → Repay ONE',   desc: 'Pay down debt and optionally withdraw collateral' },
+  { path: '/vault/close',     label: 'Vault → Close',       desc: 'Repay full debt, reclaim all collateral, close vault' },
+  { path: '/earn',            label: 'Earn',                desc: 'Stability Pool: deposit ONE, earn liquidation rewards' },
+  { path: '/token',           label: 'ONE Token',           desc: 'Token stats: peg, supply, protocol parameters' },
+]
+
+function SitemapPage() {
+  const navigate = useNavigate()
+  return (
+    <div style={{ maxWidth: 680, margin: '0 auto', padding: '48px 24px 40px' }}>
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>ONE by Alpend</div>
+        <h1 style={{ fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', margin: 0 }}>Page Index</h1>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {SITEMAP.map(({ path, label, desc }) => (
+          <div
+            key={path}
+            onClick={() => navigate(path)}
+            className="card-hover"
+            style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px', borderRadius: 10, border: '1px solid #1a3535', background: '#071818', cursor: 'pointer' }}
+          >
+            <code style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: C.teal, background: '#0d2828', padding: '3px 8px', borderRadius: 5, whiteSpace: 'nowrap', flexShrink: 0 }}>{path}</code>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', letterSpacing: '-0.01em' }}>{label}</div>
+              <div style={{ fontSize: 11.5, color: '#4a7878', marginTop: 2 }}>{desc}</div>
+            </div>
+            <svg style={{ marginLeft: 'auto', flexShrink: 0, color: '#2a5050' }} width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 9.5L9.5 2.5M9.5 2.5H4M9.5 2.5V8"/></svg>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function AppShell() {
   const loc = useLocation()
   const isWallet = loc.pathname === '/explore' || loc.pathname === '/wallet/activity'
@@ -2470,7 +2513,7 @@ function AppShell() {
       {!isWallet && <StatsTicker />}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <Routes>
-          <Route path="/"       element={<Navigate to="/vault" />} />
+          <Route path="/"       element={<SitemapPage />} />
           <Route path="/vault"  element={
             <Dashboard
               connected={connected} onConnect={connect}
