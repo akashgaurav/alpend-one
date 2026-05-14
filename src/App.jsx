@@ -461,7 +461,7 @@ function Nav({ connected, onConnect, onLogout }) {
       background: '#071e1e',
       borderBottom: '1px solid #0d2424',
     }}>
-      <Link to="/vault" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+      <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
         <ONEMark size={28} />
         <div>
           <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>
@@ -1807,8 +1807,10 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
   const [swapDir,     setSwapDir]   = useState('USDC_TO_ONE')
   const [swapAmt,     setSwapAmt]   = useState('')
   const [swapDone,    setSwapDone]  = useState(false)
+  const [lastSwap,    setLastSwap]  = useState(null)  // { amt, from, to } for success screen
   const [histFilter,     setHistFilter]     = useState('All')
-  const [walletUSDCx,    setWalletUSDCx]    = useState(500.00)
+  const [walletUSDCx,    setWalletUSDCx]    = useState(1000.00)
+  const [localTxns,      setLocalTxns]      = useState([])
   const [authState,      setAuthState]      = useState('idle') // 'idle' | 'checking' | 'denied'
   const [demoPass,       setDemoPass]       = useState(true)   // demo toggle: pass = whitelisted
   const swapInputRef = useRef(null)
@@ -1843,18 +1845,31 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
   const isOverMax  = swapNum > 0 && swapNum > swapMax
 
   const handleSwapConfirm = () => {
-    if (swapDir === 'USDC_TO_ONE') {
+    const isToONE = swapDir === 'USDC_TO_ONE'
+    if (isToONE) {
       setWalletUSDCx(prev => Math.max(0, prev - swapNum))
       onWalletSwap(swapNum)
     } else {
       setWalletUSDCx(prev => prev + swapNum)
       onWalletSwap(-swapNum)
     }
+    setLastSwap({ amt: swapNum, from: fromToken, to: toToken })
+    setLocalTxns(prev => [{
+      id: Date.now(),
+      date: 'Just now',
+      type: 'Swap',
+      icon: 'swap',
+      app: null,
+      amount: isToONE ? `+${swapNum.toFixed(2)} ONE` : `-${swapNum.toFixed(2)} ONE`,
+      usd:    isToONE ? `+$${swapNum.toFixed(2)}` : `-$${swapNum.toFixed(2)}`,
+      detail: isToONE ? `From ${swapAmt} USDCx · DVP` : `To ${swapNum.toFixed(2)} USDCx · DVP`,
+    }, ...prev])
     setSwapDone(true)
   }
 
   const histFilters = ['All', 'Swap', 'Transfer', 'App']
-  const filteredHist = WALLET_HISTORY.filter(tx => {
+  const allTxns = [...localTxns, ...WALLET_HISTORY]
+  const filteredHist = allTxns.filter(tx => {
     if (histFilter === 'All')      return true
     if (histFilter === 'Swap')     return tx.icon === 'swap'
     if (histFilter === 'Transfer') return tx.icon === 'send' || tx.icon === 'receive'
@@ -2089,7 +2104,7 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
                     <USDCxBadge size={16} />
                     <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>No USDCx in Loop wallet</span>
                   </div>
-                  <button onClick={() => setWalletUSDCx(500)} style={{ fontSize: 10, color: '#3a6060', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
+                  <button onClick={() => setWalletUSDCx(1000)} style={{ fontSize: 10, color: '#3a6060', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
                     + demo
                   </button>
                 </div>
@@ -2147,20 +2162,18 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
             </div>
 
             {swapDone ? (
-              <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                <div style={{ width: 52, height: 52, borderRadius: '50%', background: `${C.green}15`, border: `1px solid ${C.green}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 11l5 5 9-9" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: `${C.green}15`, border: `1px solid ${C.green}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                  <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><path d="M4 11l5 5 9-9" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginBottom: 6 }}>Swap Settled</div>
-                <div style={{ fontSize: 13, color: '#7ababa', marginBottom: 4 }}>{swapAmt} {fromToken} → {swapNum.toFixed(2)} {toToken}</div>
-                <div style={{ fontSize: 11, color: '#4a7878', marginBottom: fromToken === 'ONE' ? 10 : 22 }}>Instant · Atomic · DVP</div>
-                {fromToken === 'ONE' && (
-                  <div style={{ fontSize: 11, color: '#4a8888', background: 'rgba(6,182,212,0.05)', border: '1px solid rgba(6,182,212,0.12)', borderRadius: 8, padding: '7px 12px', marginBottom: 22 }}>
-                    {swapNum.toFixed(2)} USDCx credited to your Loop wallet
-                  </div>
-                )}
-                <button onClick={() => { setSwapDone(false); setSwapAmt('') }}
-                  style={{ padding: '9px 24px', borderRadius: 100, background: 'linear-gradient(135deg, #14b8a6, #0d9488)', color: '#071e1e', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer' }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Swap Settled</div>
+                <div style={{ fontSize: 13, color: '#7ababa', marginBottom: 2 }}>
+                  {lastSwap?.amt.toFixed(2)} {lastSwap?.from} → {lastSwap?.amt.toFixed(2)} {lastSwap?.to}
+                </div>
+                <div style={{ fontSize: 11, color: '#4a7878', marginBottom: 20 }}>Instant · Atomic · DVP</div>
+
+                <button onClick={() => { setSwapDone(false); setSwapAmt(''); setLastSwap(null) }}
+                  style={{ padding: '9px 28px', borderRadius: 100, background: 'linear-gradient(135deg, #14b8a6, #0d9488)', color: '#071e1e', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer' }}>
                   New Swap
                 </button>
               </div>
