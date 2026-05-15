@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Link, Navigate, useNavigate, useLocation } from 'react-router-dom'
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
@@ -1760,18 +1760,20 @@ const DVP_FEE_PCT   = 0
 const MOCK_ADDR     = '0x4f2e9a8c3d1b7f05e82c1a4d6b3e9f2a7c8d91b'
 const MOCK_ADDR_SHORT = '0x4f2e…91b'
 
+const EXPLORER_BASE = 'https://ccview.io/transactions'
+
 const WALLET_HISTORY = [
-  { id: 1,  date: 'May 14, 2026 · 10:12', type: 'Received',      icon: 'receive', app: null,    amount: '+500.00 ONE',   usd: '+$500.00',   detail: 'From 0xAbc3…d4f1'           },
-  { id: 2,  date: 'May 13, 2026 · 16:05', type: 'Swap',          icon: 'swap',    app: null,    amount: '+850.00 ONE',   usd: '+$850.00',   detail: 'From 852.55 USDCx · DVP'    },
-  { id: 3,  date: 'May 12, 2026 · 15:30', type: 'Swap',          icon: 'swap',    app: null,    amount: '+347.32 ONE',   usd: '+$347.32',   detail: 'From 350 USDCx · DVP'       },
-  { id: 4,  date: 'May 11, 2026 · 11:05', type: 'Raven Markets', icon: 'app',     app: 'raven', amount: '-150.00 ONE',   usd: '-$150.00',   detail: 'Trade settlement'            },
-  { id: 5,  date: 'May 10, 2026 · 08:44', type: 'Sent',          icon: 'send',    app: null,    amount: '-200.00 ONE',   usd: '-$200.00',   detail: 'To 0x9a3f…b12c'             },
-  { id: 6,  date: 'May 09, 2026 · 17:20', type: 'Swap',          icon: 'swap',    app: null,    amount: '-299.10 ONE',   usd: '-$299.10',   detail: 'To 300 USDCx · DVP'         },
-  { id: 7,  date: 'May 08, 2026 · 13:55', type: 'FractIt',       icon: 'app',     app: 'fract', amount: '-80.00 ONE',    usd: '-$80.00',    detail: 'Asset purchase'              },
-  { id: 8,  date: 'May 07, 2026 · 09:00', type: 'Received',      icon: 'receive', app: null,    amount: '+1,000.00 ONE', usd: '+$1,000.00', detail: 'From 0xD33a…7c2b'           },
-  { id: 9,  date: 'May 06, 2026 · 14:22', type: 'Swap',          icon: 'swap',    app: null,    amount: '-500.00 ONE',   usd: '-$500.00',   detail: 'To 501.20 USDCx · DVP'      },
-  { id: 10, date: 'May 05, 2026 · 10:10', type: 'FractIt',       icon: 'app',     app: 'fract', amount: '-50.00 ONE',    usd: '-$50.00',    detail: 'Asset purchase'              },
-  { id: 11, date: 'May 04, 2026 · 15:33', type: 'Raven Markets', icon: 'app',     app: 'raven', amount: '+320.00 ONE',   usd: '+$320.00',   detail: 'Trade proceeds received'     },
+  { id: 1,  date: 'May 14, 2026 · 10:12', type: 'Received',      icon: 'receive', app: null,    amount: '+500.00 ONE',   usd: '+$500.00',   detail: 'From 0xAbc3…d4f1',        hash: '0x4f2a1c8e3b7d9f05a6e2c4b8d1f3a7e9c2b5d8f1a4e7c0b3d6f9a2e5c8b1d4f7' },
+  { id: 2,  date: 'May 13, 2026 · 16:05', type: 'Swap',          icon: 'swap',    app: null,    amount: '+850.00 ONE',   usd: '+$850.00',   detail: 'From 852.55 USDCx · DVP', hash: '0x9c3e7a2f5b8d1e4a7c0f3b6d9e2a5c8f1b4e7a0d3f6c9b2e5a8d1f4c7b0e3a6d9' },
+  { id: 3,  date: 'May 12, 2026 · 15:30', type: 'Swap',          icon: 'swap',    app: null,    amount: '+347.32 ONE',   usd: '+$347.32',   detail: 'From 350 USDCx · DVP',    hash: '0x2b5e8a1d4f7c0b3e6a9d2f5c8b1e4a7d0f3c6a9b2e5d8f1c4b7e0a3d6f9c2b5e8' },
+  { id: 4,  date: 'May 11, 2026 · 11:05', type: 'Raven Markets', icon: 'app',     app: 'raven', amount: '-150.00 ONE',   usd: '-$150.00',   detail: 'Trade settlement',         hash: '0x7d0f3a6c9b2e5d8f1a4e7c0b3d6f9a2c5b8e1a4d7f0c3b6e9a2d5f8c1b4e7a0d3' },
+  { id: 5,  date: 'May 10, 2026 · 08:44', type: 'Sent',          icon: 'send',    app: null,    amount: '-200.00 ONE',   usd: '-$200.00',   detail: 'To 0x9a3f…b12c',          hash: '0x1e4a7d0f3c6b9e2a5d8f1c4b7e0a3f6c9b2e5d8f1a4c7b0e3a6d9f2c5b8e1a4d7' },
+  { id: 6,  date: 'May 09, 2026 · 17:20', type: 'Swap',          icon: 'swap',    app: null,    amount: '-299.10 ONE',   usd: '-$299.10',   detail: 'To 300 USDCx · DVP',      hash: '0x6a9d2f5c8b1e4a7d0f3c6b9e2a5f8c1b4e7a0d3f6c9b2e5d8f1c4a7b0e3d6f9a2' },
+  { id: 7,  date: 'May 08, 2026 · 13:55', type: 'FractIt',       icon: 'app',     app: 'fract', amount: '-80.00 ONE',    usd: '-$80.00',    detail: 'Asset purchase',           hash: '0x3c6f9a2e5b8d1f4a7c0e3b6d9f2a5c8e1b4d7f0a3e6c9b2f5d8a1e4c7b0d3f6a9' },
+  { id: 8,  date: 'May 07, 2026 · 09:00', type: 'Received',      icon: 'receive', app: null,    amount: '+1,000.00 ONE', usd: '+$1,000.00', detail: 'From 0xD33a…7c2b',        hash: '0x8e1b4d7f0a3c6e9b2f5d8a1e4c7b0d3f6a9c2e5b8f1a4d7e0c3b6f9a2e5c8b1d4' },
+  { id: 9,  date: 'May 06, 2026 · 14:22', type: 'Swap',          icon: 'swap',    app: null,    amount: '-500.00 ONE',   usd: '-$500.00',   detail: 'To 501.20 USDCx · DVP',   hash: '0x5d8a1e4c7b0f3a6d9e2c5b8f1a4d7c0e3b6f9a2e5c8b1d4f7a0e3c6b9f2a5d8e1' },
+  { id: 10, date: 'May 05, 2026 · 10:10', type: 'FractIt',       icon: 'app',     app: 'fract', amount: '-50.00 ONE',    usd: '-$50.00',    detail: 'Asset purchase',           hash: '0xa2e5c8b1d4f7a0e3c6b9f2d5a8e1c4b7f0a3d6c9b2e5f8a1d4c7e0b3f6a9d2e5c8' },
+  { id: 11, date: 'May 04, 2026 · 15:33', type: 'Raven Markets', icon: 'app',     app: 'raven', amount: '+320.00 ONE',   usd: '+$320.00',   detail: 'Trade proceeds received',  hash: '0xd7f0a3e6c9b2d5f8a1e4b7c0f3a6d9e2b5c8f1a4e7b0d3c6f9a2e5b8d1f4c7a0e3' },
 ]
 
 function TxTypeChip({ type, icon }) {
@@ -1800,13 +1802,30 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
   const [swapDir,     setSwapDir]   = useState('USDC_TO_ONE')
   const [swapAmt,     setSwapAmt]   = useState('')
   const [swapDone,    setSwapDone]  = useState(false)
-  const [lastSwap,    setLastSwap]  = useState(null)  // { amt, from, to } for success screen
+  const [lastSwap,    setLastSwap]  = useState(null)  // { amt, from, to, hash } for success screen
+  const [swapCountdown, setSwapCountdown] = useState(7)
   const [histFilter,     setHistFilter]     = useState('All')
   const [walletUSDCx,    setWalletUSDCx]    = useState(1000.00)
   const [localTxns,      setLocalTxns]      = useState([])
   const [authState,      setAuthState]      = useState('idle') // 'idle' | 'checking' | 'denied'
   const [demoPass,       setDemoPass]       = useState(true)   // demo toggle: pass = whitelisted
   const swapInputRef = useRef(null)
+
+  useEffect(() => {
+    if (!swapDone) { setSwapCountdown(7); return }
+    setSwapCountdown(7)
+    const interval = setInterval(() => {
+      setSwapCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          setSwapDone(false); setSwapAmt(''); setLastSwap(null)
+          return 7
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [swapDone])
 
   // Reset auth state when wallet disconnects (e.g. via nav logout)
   const prevConnected = useRef(walletConnected)
@@ -1846,7 +1865,8 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
       setWalletUSDCx(prev => prev + swapNum)
       onWalletSwap(-swapNum)
     }
-    setLastSwap({ amt: swapNum, from: fromToken, to: toToken })
+    const newHash = '0x' + Array.from({length: 64}, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('')
+    setLastSwap({ amt: swapNum, from: fromToken, to: toToken, hash: newHash })
     setLocalTxns(prev => [{
       id: Date.now(),
       date: 'Just now',
@@ -1856,6 +1876,7 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
       amount: isToONE ? `+${swapNum.toFixed(2)} ONE` : `-${swapNum.toFixed(2)} ONE`,
       usd:    isToONE ? `+$${swapNum.toFixed(2)}` : `-$${swapNum.toFixed(2)}`,
       detail: isToONE ? `From ${swapAmt} USDCx · DVP` : `To ${swapNum.toFixed(2)} USDCx · DVP`,
+      hash: newHash,
     }, ...prev])
     setSwapDone(true)
   }
@@ -2143,14 +2164,25 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
                   <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><path d="M4 11l5 5 9-9" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', marginBottom: 8 }}>Swap Settled</div>
-                <div style={{ fontSize: 13, color: '#7ababa', marginBottom: 28 }}>
+                <div style={{ fontSize: 13, color: '#7ababa', marginBottom: 20 }}>
                   {lastSwap?.amt.toFixed(2)} {lastSwap?.from} → {lastSwap?.amt.toFixed(2)} {lastSwap?.to}
                 </div>
-
+                {lastSwap?.hash && (
+                  <div style={{ marginBottom: 20 }}>
+                    <a href={`${EXPLORER_BASE}/${lastSwap.hash}`} target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: '#4a7878', textDecoration: 'none', background: '#071e1e', border: '1px solid #1e4040', borderRadius: 8, padding: '6px 12px', transition: 'color 0.15s, border-color 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = C.teal; e.currentTarget.style.borderColor = `${C.teal}55` }}
+                      onMouseLeave={e => { e.currentTarget.style.color = '#4a7878'; e.currentTarget.style.borderColor = '#1e4040' }}>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{lastSwap.hash.slice(0, 10)}…{lastSwap.hash.slice(-6)}</span>
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.5 9.5L9.5 2.5M9.5 2.5H4M9.5 2.5V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </a>
+                  </div>
+                )}
                 <button onClick={() => { setSwapDone(false); setSwapAmt(''); setLastSwap(null) }}
-                  style={{ padding: '9px 28px', borderRadius: 100, background: 'linear-gradient(135deg, #14b8a6, #0d9488)', color: '#071e1e', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer' }}>
+                  style={{ padding: '9px 28px', borderRadius: 100, background: 'linear-gradient(135deg, #14b8a6, #0d9488)', color: '#071e1e', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', marginBottom: 12 }}>
                   New Swap
                 </button>
+                <div style={{ fontSize: 11, color: '#3a6060' }}>Redirecting in {swapCountdown}s…</div>
               </div>
             ) : (
               <div>
@@ -2286,7 +2318,17 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
                             {isApp ? meta.emoji : tx.icon === 'receive' ? <IcoReceive /> : tx.icon === 'swap' ? <IcoSwapH /> : <IcoSend />}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{tx.type}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
+                              {tx.type}
+                              {tx.hash && (
+                                <a href={`${EXPLORER_BASE}/${tx.hash}`} target="_blank" rel="noopener noreferrer"
+                                  style={{ color: '#2a4848', textDecoration: 'none', lineHeight: 1, transition: 'color 0.15s' }}
+                                  onMouseEnter={e => e.currentTarget.style.color = C.teal}
+                                  onMouseLeave={e => e.currentTarget.style.color = '#2a4848'}>
+                                  <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2.5 9.5L9.5 2.5M9.5 2.5H4M9.5 2.5V8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                </a>
+                              )}
+                            </div>
                             <div style={{ fontSize: 11, color: '#4a7878', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.date} · {tx.detail}</div>
                           </div>
                           <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -2433,7 +2475,17 @@ function WalletActivityPage() {
                   {isApp ? meta.emoji : tx.icon === 'receive' ? <IcoReceive /> : tx.icon === 'swap' ? <IcoSwapH /> : <IcoSend />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 3 }}>{tx.type}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    {tx.type}
+                    {tx.hash && (
+                      <a href={`${EXPLORER_BASE}/${tx.hash}`} target="_blank" rel="noopener noreferrer"
+                        style={{ color: '#2a4848', textDecoration: 'none', lineHeight: 1, transition: 'color 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.color = C.teal}
+                        onMouseLeave={e => e.currentTarget.style.color = '#2a4848'}>
+                        <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2.5 9.5L9.5 2.5M9.5 2.5H4M9.5 2.5V8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </a>
+                    )}
+                  </div>
                   <div style={{ fontSize: 12, color: '#4a7878' }}>{tx.detail}</div>
                 </div>
                 <div style={{ flexShrink: 0, textAlign: 'right' }}>
