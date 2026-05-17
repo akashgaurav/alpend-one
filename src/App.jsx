@@ -69,7 +69,7 @@ const MOCK_VAULT    = { id: 1, ccAmount: 30000, oneDebt: 2800 }  // used after v
 
 const PROTO = {
   tvl: '$4.25M', supply: '2,184,000', vaults: 347,
-  ccPrice: `$${CC_PRICE.toFixed(2)}`, poolAPY: '12.4%',
+  ccPrice: `$${CC_PRICE.toFixed(2)}`, poolAPY: '21.26%',
 }
 
 // ─── ICONS ────────────────────────────────────────────────────────────────────
@@ -149,7 +149,7 @@ function CCCoinBadge({ size = 28 }) {
   return <img src="/cccoin.svg" width={size} height={size} alt="CC" style={{ display: 'block', borderRadius: '50%' }} />
 }
 
-// bONE vault receipt token badge
+// yONE vault receipt token badge
 function BONEBadge({ size = 28 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
@@ -162,7 +162,7 @@ function BONEBadge({ size = 28 }) {
       <circle cx="14" cy="14" r="14" fill="url(#boneGrad)" fillOpacity="0.15" />
       <circle cx="14" cy="14" r="13" stroke="url(#boneGrad)" strokeWidth="1" strokeOpacity="0.5" />
       <text x="14" y="15.5" textAnchor="middle" fill="#10b981"
-        fontSize="7" fontWeight="800" fontFamily="Inter, system-ui, sans-serif" letterSpacing="-0.3">bONE</text>
+        fontSize="7" fontWeight="800" fontFamily="Inter, system-ui, sans-serif" letterSpacing="-0.3">yONE</text>
     </svg>
   )
 }
@@ -258,9 +258,9 @@ function TabBar({ tabs, active, onChange }) {
   )
 }
 
-function Row({ label, value, tip, highlight, mono, sub }) {
+function Row({ label, value, tip, highlight, mono, sub, noBorder }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: `1px solid ${C.border}` }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: noBorder ? 'none' : `1px solid ${C.border}` }}>
       <span style={{ fontSize: 13, color: C.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
         {label} {tip && <Tip text={tip} />}
       </span>
@@ -306,8 +306,8 @@ function AmountInput({ label, value, onChange, max, unit, usdValue, hint, subHin
           <input type="number" value={value} onChange={e => onChange(e.target.value)} placeholder="0"
             style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: 24, fontWeight: 700, letterSpacing: '-0.03em', minWidth: 0 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: C.faint, borderRadius: 8, padding: '7px 12px', whiteSpace: 'nowrap' }}>
-            {unit === 'CC' ? <CCCoinBadge size={20} /> : unit === 'bONE' ? <BONEBadge size={20} /> : <ONEMark size={20} />}
-            <span style={{ fontSize: 13, fontWeight: 700, color: unit === 'CC' ? C.teal : unit === 'bONE' ? C.green : C.cyan }}>{unit}</span>
+            {unit === 'CC' ? <CCCoinBadge size={20} /> : unit === 'yONE' ? <BONEBadge size={20} /> : <ONEMark size={20} />}
+            <span style={{ fontSize: 13, fontWeight: 700, color: unit === 'CC' ? C.teal : unit === 'yONE' ? C.green : C.cyan }}>{unit}</span>
           </div>
         </div>
         {usdValue !== undefined && (
@@ -448,7 +448,6 @@ function Nav({ connected, onConnect, onLogout }) {
   const loc = useLocation()
   const links = [
     { to: '/vault',   label: 'Vault'  },
-    { to: '/earn',    label: 'Earn'   },
     { to: '/token',   label: 'ONE'    },
     { to: '/explore', label: 'Wallet' },
   ]
@@ -517,8 +516,6 @@ function StatsTicker() {
       <div style={{ display: 'flex' }}>
         <TickerItem label="Total TVL"       value={PROTO.tvl}            color="#fff"    tip="Total value of all CC collateral deposited across all vaults" />
         <TickerItem label="ONE Circulating" value={PROTO.supply}         color={C.cyan}  tip="Total ONE stablecoins currently minted and in circulation" />
-        <TickerItem label="Active Vaults"   value={String(PROTO.vaults)} color="#fff"    tip="Number of open vaults currently holding collateral" />
-        <TickerItem label="Stability APY"   value={PROTO.poolAPY}        color={C.green} tip="Auto-compounded APY for ONE staked in the Stability Vault" />
       </div>
 
       {/* Spacer */}
@@ -1372,27 +1369,66 @@ function VaultClosePage({ vault, walletONE, onVaultClose }) {
 
 // ─── EARN ─────────────────────────────────────────────────────────────────────
 
-const BONE_RATE  = 1.0847  // 1 bONE = X ONE (appreciates as liquidation gains compound)
+const YONE_RATE  = 1.0847  // 1 yONE = X ONE (appreciates as liquidation gains compound)
 const VAULT_SIZE = 820000  // ONE equivalent in Stability Vault
 
-function EarnPage({ connected, onConnect }) {
+function EarnPage({ connected, onConnect, walletONE = 0, walletYONE = 0, onStake, onUnstake }) {
   const [tab,       setTab]       = useState('Stake')
   const [amt,       setAmt]       = useState('')
   const [apyPeriod, setApyPeriod] = useState('30D')
+  const [txDone,      setTxDone]      = useState(null) // { action: 'Staked'|'Unstaked', inAmt, inToken, outAmt, outToken }
+  const [txCountdown, setTxCountdown] = useState(5)
 
-  const apyByPeriod = { '7D': '14.1%', '30D': '12.4%', 'All': '10.8%' }
+  const apyByPeriod = { '7D': '24.3%', '30D': '21.26%', 'All': '18.9%' }
 
-  // Stake: send ONE → receive bONE
-  // Unstake: send bONE → receive ONE
+  useEffect(() => {
+    if (!txDone) { setTxCountdown(5); return }
+    setTxCountdown(5)
+    const iv = setInterval(() => {
+      setTxCountdown(prev => {
+        if (prev <= 1) { clearInterval(iv); setTxDone(null); return 5 }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(iv)
+  }, [txDone])
+
   const oneAmt  = Number(amt) || 0
-  const boneOut = oneAmt > 0 ? (oneAmt / BONE_RATE).toFixed(4) : '0.0000'
-  const oneOut  = oneAmt > 0 ? (oneAmt * BONE_RATE).toFixed(4)  : '0.0000'
+  const boneOut = oneAmt > 0 ? (oneAmt / YONE_RATE).toFixed(4) : '0.0000'
+  const oneOut  = oneAmt > 0 ? (oneAmt * YONE_RATE).toFixed(4)  : '0.0000'
 
-  const userONEBal  = 3250   // mock wallet balance in ONE
-  const userBONEBal = 0      // mock bONE balance
+  const handleStakeClick = () => {
+    if (oneAmt <= 0) return
+    const yOut = (oneAmt / YONE_RATE).toFixed(4)
+    onStake?.(oneAmt)
+    setTxDone({ action: 'Staked', inAmt: oneAmt, inToken: 'ONE', outAmt: yOut, outToken: 'yONE' })
+    setAmt('')
+  }
+
+  const handleUnstakeClick = () => {
+    if (oneAmt <= 0) return
+    const oOut = (oneAmt * YONE_RATE).toFixed(4)
+    onUnstake?.(oneAmt)
+    setTxDone({ action: 'Unstaked', inAmt: oneAmt, inToken: 'yONE', outAmt: oOut, outToken: 'ONE' })
+    setAmt('')
+  }
+
+  const navigate = useNavigate()
+
+  if (!connected) {
+    navigate('/explore', { replace: true })
+    return null
+  }
 
   return (
-    <div className="fade-in" style={{ padding: '32px 28px', maxWidth: 1100, margin: '0 auto' }}>
+    <div className="fade-in" style={{ padding: '32px 28px', maxWidth: 980, margin: '0 auto' }}>
+
+      {/* ── Back breadcrumb ── */}
+      <button onClick={() => navigate('/explore')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: C.muted, fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 20, padding: 0 }}
+        onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+        onMouseLeave={e => e.currentTarget.style.color = C.muted}>
+        <IcoBack /> Explore
+      </button>
 
       {/* ── Portfolio + APY header ── */}
       <Card style={{ padding: 0, overflow: 'hidden', marginBottom: 20 }}>
@@ -1404,10 +1440,10 @@ function EarnPage({ connected, onConnect }) {
               <BONEBadge size={40} />
               <div>
                 <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.04em', fontFamily: 'JetBrains Mono, monospace', color: connected ? '#fff' : C.muted }}>
-                  {connected ? userBONEBal.toFixed(2) : '—'} <span style={{ fontSize: 18, color: C.green }}>bONE</span>
+                  {connected ? walletYONE.toFixed(2) : '—'} <span style={{ fontSize: 18, color: C.green }}>yONE</span>
                 </div>
                 <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
-                  ≈ {connected ? (userBONEBal * BONE_RATE).toFixed(2) : '—'} ONE
+                  ≈ {connected ? (walletYONE * YONE_RATE).toFixed(2) : '—'} ONE
                 </div>
               </div>
             </div>
@@ -1434,138 +1470,167 @@ function EarnPage({ connected, onConnect }) {
             </div>
           </div>
         </div>
-        {/* bONE exchange rate strip */}
+        {/* yONE exchange rate strip */}
         <div style={{ padding: '10px 26px', display: 'flex', alignItems: 'center', gap: 16, background: 'rgba(16,185,129,0.04)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.muted }}>
             <BONEBadge size={18} />
-            <span>1 bONE</span>
+            <span>1 yONE</span>
             <span style={{ color: C.border }}>≡</span>
             <ONEMark size={18} />
-            <span style={{ color: '#fff', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{BONE_RATE.toFixed(4)} ONE</span>
+            <span style={{ color: '#fff', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{YONE_RATE.toFixed(4)} ONE</span>
           </div>
           <div style={{ width: 1, height: 14, background: C.border }} />
-          <div style={{ fontSize: 12, color: C.muted }}>Rate increases as liquidation gains are compounded · started at 1.0000</div>
-          <div style={{ marginLeft: 'auto', fontSize: 11, color: C.green, fontWeight: 600 }}>+8.47% cumulative gain</div>
+          <div style={{ fontSize: 12, color: C.muted }}>Rate increases as external strategy yield and liquidation gains compound</div>
         </div>
       </Card>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      {/* ── Feature highlights ── */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+        {[
+          { icon: '⚡', label: 'Instant Unlock' },
+          { icon: '∞', label: 'Zero Cooldown' },
+          { icon: '↻', label: 'Auto-Compounding' },
+          { icon: '🔒', label: 'yONE as Collateral' },
+        ].map(f => (
+          <div key={f.label} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 16px', borderRadius: 100, background: C.raised, border: `1px solid ${C.border}`, fontSize: 12, fontWeight: 600, color: C.muted }}>
+            <span style={{ fontSize: 13 }}>{f.icon}</span>
+            {f.label}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Full-width states: success or no-balance ── */}
+      {txDone && (
+        <Card style={{ padding: '52px 32px', textAlign: 'center' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: `${C.green}15`, border: `1px solid ${C.green}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <svg width="28" height="28" viewBox="0 0 22 22" fill="none"><path d="M4 11l5 5 9-9" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', marginBottom: 10 }}>{txDone.action}</div>
+          <div style={{ fontSize: 15, color: '#7ababa', marginBottom: 32 }}>
+            {txDone.inAmt} {txDone.inToken} → {txDone.outAmt} {txDone.outToken}
+          </div>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+            <Btn label="Stake more" color="primary" onClick={() => { setTxDone(null); setTab('Stake') }} />
+            <Btn label="Unstake" color="ghost" onClick={() => { setTxDone(null); setTab('Unstake') }} />
+          </div>
+          <div style={{ marginTop: 18, fontSize: 12, color: '#3a6060' }}>Returning in {txCountdown}s…</div>
+        </Card>
+      )}
+
+      {/* ── 2-column: widget left, stats right ── */}
+      {!txDone && <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'start' }}>
 
         {/* ── Stake / Unstake widget ── */}
-        <Card style={{ padding: 26 }}>
+        <Card style={{ padding: 32 }}>
           <TabBar tabs={['Stake', 'Unstake']} active={tab} onChange={t => { setTab(t); setAmt('') }} />
-          <div style={{ marginTop: 20 }}>
-            {!connected ? (
-              <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Connect to stake ONE and earn from liquidations.</div>
-                <Btn label="Connect Wallet" onClick={onConnect} color="primary" />
+          <div style={{ marginTop: 24 }}>
+            {tab === 'Stake' && walletONE <= 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 16px 16px' }}>
+                <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(20,184,166,0.08)', border: '1px solid rgba(20,184,166,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+                  <ONEMark size={28} />
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', marginBottom: 10 }}>No ONE in your wallet</div>
+                <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 24 }}>
+                  Buy ONE with USDCx on DVP Exchange — instant swap, 1:1 rate, no fee.
+                </div>
+                <Btn label="Go to DVP Exchange →" color="primary" onClick={() => navigate('/explore')} />
               </div>
             ) : tab === 'Stake' ? (
-              <>
-                {/* You're sending */}
-                <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, marginBottom: 8 }}>You're sending</div>
-                <div style={{ position: 'relative', marginBottom: 14 }}>
-                  <AmountInput
-                    value={amt} onChange={setAmt}
-                    max={userONEBal} unit="ONE"
-                    usdValue={amt ? `≈ $${Number(amt).toFixed(2)}` : '$0.00'}
-                    hint={`Balance: ${userONEBal.toLocaleString()} ONE`}
-                  />
-                </div>
-                {/* You receive */}
-                <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, marginBottom: 8 }}>You receive</div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px', background: C.raised, borderRadius: 12, border: `1px solid ${C.border}`, marginBottom: 18 }}>
-                  <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', fontFamily: 'JetBrains Mono, monospace', color: C.green }}>{boneOut}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <BONEBadge size={24} />
-                    <span style={{ fontSize: 14, fontWeight: 700, color: C.green }}>bONE</span>
-                  </div>
-                </div>
-                {/* Rate */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(16,185,129,0.06)', border: `1px solid rgba(16,185,129,0.15)`, borderRadius: 10, marginBottom: 20, fontSize: 12 }}>
-                  <span style={{ color: C.muted }}>1 bONE equals</span>
-                  <span style={{ fontWeight: 700, color: '#fff', fontFamily: 'JetBrains Mono, monospace' }}>{BONE_RATE.toFixed(4)} ONE</span>
-                </div>
-                <Btn label={amt && oneAmt > 0 ? `Stake ${Number(amt).toLocaleString()} ONE` : 'Enter amount'} color="primary" full disabled={!amt || oneAmt <= 0} onClick={() => {}} />
-                <div style={{ marginTop: 10, fontSize: 12, color: C.muted, textAlign: 'center' }}>
-                  bONE is freely transferable and usable across DeFi
-                </div>
-              </>
+                  <>
+                    <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, marginBottom: 10 }}>You're sending</div>
+                    <div style={{ position: 'relative', marginBottom: 18 }}>
+                      <AmountInput
+                        value={amt} onChange={setAmt}
+                        max={walletONE} unit="ONE"
+                        usdValue={amt ? `≈ $${Number(amt).toFixed(2)}` : '$0.00'}
+                        hint={`Balance: ${walletONE.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ONE`}
+                      />
+                    </div>
+                    <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, marginBottom: 10 }}>You receive</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', background: C.raised, borderRadius: 12, border: `1px solid ${C.border}`, marginBottom: 20 }}>
+                      <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.03em', fontFamily: 'JetBrains Mono, monospace', color: C.green }}>{boneOut}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <BONEBadge size={24} />
+                        <span style={{ fontSize: 14, fontWeight: 700, color: C.green }}>yONE</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', background: 'rgba(16,185,129,0.06)', border: `1px solid rgba(16,185,129,0.15)`, borderRadius: 10, marginBottom: 24, fontSize: 12 }}>
+                      <span style={{ color: C.muted }}>1 yONE equals</span>
+                      <span style={{ fontWeight: 700, color: '#fff', fontFamily: 'JetBrains Mono, monospace' }}>{YONE_RATE.toFixed(4)} ONE</span>
+                    </div>
+                    <Btn label={amt && oneAmt > 0 ? `Stake ${Number(amt).toLocaleString()} ONE` : 'Enter amount'} color="primary" full disabled={!amt || oneAmt <= 0 || oneAmt > walletONE} onClick={handleStakeClick} />
+                    <div style={{ marginTop: 12, fontSize: 12, color: C.muted, textAlign: 'center' }}>
+                      yONE is freely transferable across Canton DeFi
+                    </div>
+                  </>
             ) : (
-              <>
-                {/* Unstake */}
-                <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, marginBottom: 8 }}>You're sending</div>
-                <div style={{ marginBottom: 14 }}>
-                  <AmountInput
-                    value={amt} onChange={setAmt}
-                    max={userBONEBal} unit="bONE"
-                    usdValue={amt ? `≈ $${(Number(amt) * BONE_RATE).toFixed(2)}` : '$0.00'}
-                    hint={`Balance: ${userBONEBal.toFixed(4)} bONE`}
-                  />
-                </div>
-                <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, marginBottom: 8 }}>You receive</div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px', background: C.raised, borderRadius: 12, border: `1px solid ${C.border}`, marginBottom: 18 }}>
-                  <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', fontFamily: 'JetBrains Mono, monospace' }}>{oneOut}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <ONEMark size={24} />
-                    <span style={{ fontSize: 14, fontWeight: 700, color: C.cyan }}>ONE</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(16,185,129,0.06)', border: `1px solid rgba(16,185,129,0.15)`, borderRadius: 10, marginBottom: 20, fontSize: 12 }}>
-                  <span style={{ color: C.muted }}>1 bONE equals</span>
-                  <span style={{ fontWeight: 700, color: '#fff', fontFamily: 'JetBrains Mono, monospace' }}>{BONE_RATE.toFixed(4)} ONE</span>
-                </div>
-                {userBONEBal <= 0
-                  ? <div style={{ textAlign: 'center', padding: '8px 0 16px', fontSize: 13, color: C.muted }}>You have no bONE to unstake.</div>
-                  : null}
-                <Btn label="Unstake bONE" color="ghost" full disabled={userBONEBal <= 0 || !amt || oneAmt <= 0} onClick={() => {}} />
-              </>
+                  <>
+                    <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, marginBottom: 10 }}>You're sending</div>
+                    <div style={{ marginBottom: 18 }}>
+                      <AmountInput
+                        value={amt} onChange={setAmt}
+                        max={walletYONE} unit="yONE"
+                        usdValue={amt ? `≈ $${(Number(amt) * YONE_RATE).toFixed(2)}` : '$0.00'}
+                        hint={`Balance: ${walletYONE.toFixed(4)} yONE`}
+                      />
+                    </div>
+                    <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, marginBottom: 10 }}>You receive</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', background: C.raised, borderRadius: 12, border: `1px solid ${C.border}`, marginBottom: 20 }}>
+                      <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.03em', fontFamily: 'JetBrains Mono, monospace' }}>{oneOut}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <ONEMark size={24} />
+                        <span style={{ fontSize: 14, fontWeight: 700, color: C.cyan }}>ONE</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', background: 'rgba(16,185,129,0.06)', border: `1px solid rgba(16,185,129,0.15)`, borderRadius: 10, marginBottom: 24, fontSize: 12 }}>
+                      <span style={{ color: C.muted }}>1 yONE equals</span>
+                      <span style={{ fontWeight: 700, color: '#fff', fontFamily: 'JetBrains Mono, monospace' }}>{YONE_RATE.toFixed(4)} ONE</span>
+                    </div>
+                    {walletYONE <= 0
+                      ? <div style={{ textAlign: 'center', padding: '8px 0 16px', fontSize: 13, color: C.muted }}>You have no yONE to unstake.</div>
+                      : null}
+                    <Btn label="Unstake yONE" color="ghost" full disabled={walletYONE <= 0 || !amt || oneAmt <= 0} onClick={handleUnstakeClick} />
+                  </>
             )}
           </div>
         </Card>
 
-        {/* ── Right column: stats + liquidations ── */}
+        {/* ── Right column: stats + info ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Card style={{ padding: 22 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 14 }}>Stability Vault Stats</div>
-            <Row label="Total Staked" value="820,000 ONE equiv." tip="Total ONE value staked across all bONE holders" />
-            <Row label="bONE Supply" value="756,104 bONE" tip="Total bONE in circulation — each represents a growing share of the vault" />
-            <Row label="Liquidations Absorbed (total)" value="$48,200 ONE" highlight={C.green} tip="Total value of liquidated CC converted to ONE and compounded back" />
-            <Row label="Your bONE" value={connected ? `${userBONEBal.toFixed(4)} bONE` : '—'} />
+
+          {/* Vault Stats */}
+          <Card style={{ padding: 26 }}>
+            <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 16 }}>Vault Stats</div>
+            <Row label="Total Staked" value="820,000 ONE" tip="Total ONE value staked across all yONE holders" />
+            <Row label="yONE Supply" value="756,104 yONE" tip="Total yONE in circulation — each represents a growing share of the vault" />
+            <Row label="Current APY" value="21.26%" highlight={C.green} tip="30-day annualised yield from external strategies and liquidation gains" noBorder />
           </Card>
 
-          <Card style={{ padding: 22 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              Recent Liquidations
-              <span style={{ fontSize: 12, color: C.muted, fontWeight: 400 }}>Gains auto-compounded → bONE rate ↑</span>
-            </div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>CC received → swapped to ONE → compounded</div>
-            {(() => {
-              const liqEvents = [
-                { time: '2h ago',  ccUSD: '$4,200', gain: '+$420', oneAdded: '+4,200 ONE', cc: '28,000 CC' },
-                { time: '11h ago', ccUSD: '$1,900', gain: '+$190', oneAdded: '+1,900 ONE', cc: '12,667 CC' },
-                { time: '2d ago',  ccUSD: '$8,100', gain: '+$810', oneAdded: '+8,100 ONE', cc: '54,000 CC' },
-              ]
-              if (liqEvents.length === 0) return (
-                <EmptyState icon={<IcoShield />} title="No liquidations yet" hint="When undercollateralized vaults are liquidated, gains compound into your bONE." compact />
-              )
-              return liqEvents.map((l, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < liqEvents.length - 1 ? `1px solid ${C.border}` : 'none' }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: '#fff', fontWeight: 500 }}>CC vault liquidated</div>
-                    <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{l.time} · {l.cc} absorbed · {l.ccUSD}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: C.green, fontFamily: 'JetBrains Mono, monospace' }}>{l.gain}</div>
-                    <div style={{ fontSize: 12, color: C.muted }}>{l.oneAdded} compounded</div>
-                  </div>
+          {/* Yield sources info */}
+          <Card style={{ padding: 26 }}>
+            <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 16 }}>Yield Sources</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 9, background: `${C.teal}15`, border: `1px solid ${C.teal}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 14 }}>↗</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 3 }}>External Strategies</div>
+                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>Idle ONE deployed into vetted yield strategies. Returns compound into the vault rate.</div>
                 </div>
-              ))
-            })()}
+              </div>
+              <div style={{ height: 1, background: C.border }} />
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 9, background: `${C.green}12`, border: `1px solid ${C.green}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 14 }}>⚡</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 3 }}>Liquidation Gains</div>
+                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>Vault absorbs undercollateralized debt at a discount. CC collateral auto-converts to ONE and compounds.</div>
+                </div>
+              </div>
+            </div>
           </Card>
+
         </div>
 
-      </div>
+      </div>}
     </div>
   )
 }
@@ -1605,8 +1670,8 @@ function TokenPage() {
           <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 16, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Peg Mechanics</div>
           <Row label="Current Price" value="$1.0003" mono highlight={C.teal} />
           <Row label="7d High / Low" value="$1.0012 / $0.9991" mono />
-          <Row label="Stability Vault" value="820,000 ONE equiv." />
-          <Row label="Pool APY" value="12.4%" highlight={C.green} />
+          <Row label="Vault TVL" value="820,000 ONE equiv." />
+          <Row label="Pool APY" value="21.26%" highlight={C.green} />
           <Row label="Redemption Fee" value="0.50%" />
           <Row label="Min Collateral Ratio" value="110%" />
         </Card>
@@ -1763,26 +1828,37 @@ const MOCK_ADDR_SHORT = '0x4f2e…91b'
 const EXPLORER_BASE = 'https://ccview.io/transactions'
 
 const WALLET_HISTORY = [
-  { id: 1,  date: 'May 14, 2026 · 10:12', type: 'Received',      icon: 'receive', app: null,    amount: '+500.00 ONE',   usd: '+$500.00',   detail: 'From 0xAbc3…d4f1',        hash: '0x4f2a1c8e3b7d9f05a6e2c4b8d1f3a7e9c2b5d8f1a4e7c0b3d6f9a2e5c8b1d4f7' },
-  { id: 2,  date: 'May 13, 2026 · 16:05', type: 'Swap',          icon: 'swap',    app: null,    amount: '+850.00 ONE',   usd: '+$850.00',   detail: 'From 852.55 USDCx · DVP', hash: '0x9c3e7a2f5b8d1e4a7c0f3b6d9e2a5c8f1b4e7a0d3f6c9b2e5a8d1f4c7b0e3a6d9' },
-  { id: 3,  date: 'May 12, 2026 · 15:30', type: 'Swap',          icon: 'swap',    app: null,    amount: '+347.32 ONE',   usd: '+$347.32',   detail: 'From 350 USDCx · DVP',    hash: '0x2b5e8a1d4f7c0b3e6a9d2f5c8b1e4a7d0f3c6a9b2e5d8f1c4b7e0a3d6f9c2b5e8' },
-  { id: 4,  date: 'May 11, 2026 · 11:05', type: 'Raven Markets', icon: 'app',     app: 'raven', amount: '-150.00 ONE',   usd: '-$150.00',   detail: 'Trade settlement',         hash: '0x7d0f3a6c9b2e5d8f1a4e7c0b3d6f9a2c5b8e1a4d7f0c3b6e9a2d5f8c1b4e7a0d3' },
-  { id: 5,  date: 'May 10, 2026 · 08:44', type: 'Sent',          icon: 'send',    app: null,    amount: '-200.00 ONE',   usd: '-$200.00',   detail: 'To 0x9a3f…b12c',          hash: '0x1e4a7d0f3c6b9e2a5d8f1c4b7e0a3f6c9b2e5d8f1a4c7b0e3a6d9f2c5b8e1a4d7' },
-  { id: 6,  date: 'May 09, 2026 · 17:20', type: 'Swap',          icon: 'swap',    app: null,    amount: '-299.10 ONE',   usd: '-$299.10',   detail: 'To 300 USDCx · DVP',      hash: '0x6a9d2f5c8b1e4a7d0f3c6b9e2a5f8c1b4e7a0d3f6c9b2e5d8f1c4a7b0e3d6f9a2' },
-  { id: 7,  date: 'May 08, 2026 · 13:55', type: 'FractIt',       icon: 'app',     app: 'fract', amount: '-80.00 ONE',    usd: '-$80.00',    detail: 'Asset purchase',           hash: '0x3c6f9a2e5b8d1f4a7c0e3b6d9f2a5c8e1b4d7f0a3e6c9b2f5d8a1e4c7b0d3f6a9' },
-  { id: 8,  date: 'May 07, 2026 · 09:00', type: 'Received',      icon: 'receive', app: null,    amount: '+1,000.00 ONE', usd: '+$1,000.00', detail: 'From 0xD33a…7c2b',        hash: '0x8e1b4d7f0a3c6e9b2f5d8a1e4c7b0d3f6a9c2e5b8f1a4d7e0c3b6f9a2e5c8b1d4' },
-  { id: 9,  date: 'May 06, 2026 · 14:22', type: 'Swap',          icon: 'swap',    app: null,    amount: '-500.00 ONE',   usd: '-$500.00',   detail: 'To 501.20 USDCx · DVP',   hash: '0x5d8a1e4c7b0f3a6d9e2c5b8f1a4d7c0e3b6f9a2e5c8b1d4f7a0e3c6b9f2a5d8e1' },
-  { id: 10, date: 'May 05, 2026 · 10:10', type: 'FractIt',       icon: 'app',     app: 'fract', amount: '-50.00 ONE',    usd: '-$50.00',    detail: 'Asset purchase',           hash: '0xa2e5c8b1d4f7a0e3c6b9f2d5a8e1c4b7f0a3d6c9b2e5f8a1d4c7e0b3f6a9d2e5c8' },
-  { id: 11, date: 'May 04, 2026 · 15:33', type: 'Raven Markets', icon: 'app',     app: 'raven', amount: '+320.00 ONE',   usd: '+$320.00',   detail: 'Trade proceeds received',  hash: '0xd7f0a3e6c9b2d5f8a1e4b7c0f3a6d9e2b5c8f1a4e7b0d3c6f9a2e5b8d1f4c7a0e3' },
+  // ── ONE Wallet / DVP ──
+  { id: 2,  date: 'May 13, 2026 · 16:05', type: 'Swap',            icon: 'swap',     app: null,      amount: '+850.00 ONE',    usd: '+$850.00',   detail: 'From 852.55 USDCx · DVP',             hash: '0x9c3e7a2f5b8d1e4a7c0f3b6d9e2a5c8f1b4e7a0d3f6c9b2e5a8d1f4c7b0e3a6d9' },
+  { id: 3,  date: 'May 13, 2026 · 09:18', type: 'Staked',          icon: 'stake',    app: null,      amount: '-500.00 ONE',    usd: '-$500.00',   detail: '→ 461.00 yONE · Vault',               hash: '0x1a3d5f7b9e2c4a6d8f0b2e4c6a8d0f2b4e6c8a0d2f4b6e8c0a2d4f6b8e0c2a4d6f8' },
+  { id: 4,  date: 'May 12, 2026 · 15:30', type: 'Swap',            icon: 'swap',     app: null,      amount: '+347.32 ONE',    usd: '+$347.32',   detail: 'From 350 USDCx · DVP',                hash: '0x2b5e8a1d4f7c0b3e6a9d2f5c8b1e4a7d0f3c6a9b2e5d8f1c4b7e0a3d6f9c2b5e8' },
+  { id: 5,  date: 'May 11, 2026 · 14:40', type: 'Unstaked',        icon: 'unstake',  app: null,      amount: '+108.47 ONE',    usd: '+$108.47',   detail: '← 100.00 yONE redeemed · Vault',      hash: '0x2b4d6f8a0c2e4f6b8d0a2c4e6f8b0d2a4c6e8f0b2d4f6a8c0e2a4d6f8b0c2e4f6a8' },
+  { id: 6,  date: 'May 11, 2026 · 11:05', type: 'Raven Markets',   icon: 'app',      app: 'raven',   amount: '-150.00 ONE',    usd: '-$150.00',   detail: 'Trade settlement',                    hash: '0x7d0f3a6c9b2e5d8f1a4e7c0b3d6f9a2c5b8e1a4d7f0c3b6e9a2d5f8c1b4e7a0d3' },
+  { id: 8,  date: 'May 09, 2026 · 17:20', type: 'Swap',            icon: 'swap',     app: null,      amount: '-299.10 ONE',    usd: '-$299.10',   detail: 'To 300 USDCx · DVP',                  hash: '0x6a9d2f5c8b1e4a7d0f3c6b9e2a5f8c1b4e7a0d3f6c9b2e5d8f1c4a7b0e3d6f9a2' },
+  { id: 10, date: 'May 08, 2026 · 13:55', type: 'FractIt',         icon: 'app',      app: 'fract',   amount: '-80.00 ONE',     usd: '-$80.00',    detail: 'Asset purchase',                      hash: '0x3c6f9a2e5b8d1f4a7c0e3b6d9f2a5c8e1b4d7f0a3e6c9b2f5d8a1e4c7b0d3f6a9' },
+  // ── Alpend Market ──
+  { id: 14, date: 'May 06, 2026 · 14:22', type: 'Supplied',        icon: 'supply',   app: 'market',  amount: '-1,000.00 ONE',  usd: '-$1,000.00', detail: 'ONE pool · Alpend Market',             hash: '0x5d8a1e4c7b0f3a6d9e2c5b8f1a4d7c0e3b6f9a2e5c8b1d4f7a0e3c6b9f2a5d8e1' },
+  { id: 15, date: 'May 05, 2026 · 12:05', type: 'Borrowed',        icon: 'borrow',   app: 'market',  amount: '+400.00 ONE',    usd: '+$400.00',   detail: 'Against CC collateral · Alpend Market',hash: '0x6e9c3f7a1b5d9e3f7a1b5d9e3f7a1b5d9e3f7a1b5d9e3f7a1b5d9e3f7a1b5d9e3f' },
+  { id: 16, date: 'May 05, 2026 · 10:10', type: 'FractIt',         icon: 'app',      app: 'fract',   amount: '-50.00 ONE',     usd: '-$50.00',    detail: 'Asset purchase',                      hash: '0xa2e5c8b1d4f7a0e3c6b9f2d5a8e1c4b7f0a3d6c9b2e5f8a1d4c7e0b3f6a9d2e5c8' },
+  { id: 17, date: 'May 04, 2026 · 17:30', type: 'Withdrawn',       icon: 'withdraw', app: 'market',  amount: '+250.00 ONE',    usd: '+$250.00',   detail: 'From ONE pool · Alpend Market',        hash: '0x7f0d4a8c2e6f0d4a8c2e6f0d4a8c2e6f0d4a8c2e6f0d4a8c2e6f0d4a8c2e6f0d4a' },
+  { id: 18, date: 'May 04, 2026 · 15:33', type: 'Raven Markets',   icon: 'app',      app: 'raven',   amount: '+320.00 ONE',    usd: '+$320.00',   detail: 'Trade proceeds received',              hash: '0xd7f0a3e6c9b2d5f8a1e4b7c0f3a6d9e2b5c8f1a4e7b0d3c6f9a2e5b8d1f4c7a0e3' },
+  { id: 19, date: 'May 03, 2026 · 11:15', type: 'Debt Repaid',     icon: 'repay',    app: 'market',  amount: '-400.00 ONE',    usd: '-$400.00',   detail: 'Full repayment · Alpend Market',       hash: '0x8a1e5c9d3f7b1e5c9d3f7b1e5c9d3f7b1e5c9d3f7b1e5c9d3f7b1e5c9d3f7b1e5c' },
 ]
 
 function TxTypeChip({ type, icon }) {
   const cfg = {
-    receive: { color: C.green,  bg: 'rgba(16,185,129,0.1)',  label: 'Received'    },
-    mint:    { color: C.teal,   bg: 'rgba(20,184,166,0.1)',  label: 'Minted'      },
-    swap:    { color: C.cyan,   bg: 'rgba(6,182,212,0.1)',   label: 'Swap'        },
-    send:    { color: C.muted,  bg: 'rgba(122,181,181,0.08)',label: 'Sent'        },
-    app:     { color: C.amber,  bg: 'rgba(245,158,11,0.1)',  label: 'App'         },
+    receive:  { color: C.green,  bg: 'rgba(16,185,129,0.1)',   label: 'Received'  },
+    mint:     { color: C.teal,   bg: 'rgba(20,184,166,0.1)',   label: 'Minted'    },
+    swap:     { color: C.cyan,   bg: 'rgba(6,182,212,0.1)',    label: 'Swap'      },
+    send:     { color: C.muted,  bg: 'rgba(122,181,181,0.08)', label: 'Sent'      },
+    app:      { color: C.amber,  bg: 'rgba(245,158,11,0.1)',   label: 'App'       },
+    stake:    { color: C.green,  bg: 'rgba(16,185,129,0.1)',   label: 'Staked'    },
+    unstake:  { color: C.muted,  bg: 'rgba(122,181,181,0.08)', label: 'Unstaked'  },
+    vault:    { color: '#a78bfa', bg: 'rgba(167,139,250,0.1)', label: 'Vault'     },
+    supply:   { color: C.teal,   bg: 'rgba(20,184,166,0.1)',   label: 'Supplied'  },
+    withdraw: { color: C.muted,  bg: 'rgba(122,181,181,0.08)', label: 'Withdrawn' },
+    borrow:   { color: C.cyan,   bg: 'rgba(6,182,212,0.1)',    label: 'Borrowed'  },
+    repay:    { color: C.amber,  bg: 'rgba(245,158,11,0.1)',   label: 'Repaid'    },
   }
   const c = cfg[icon] || cfg.send
   return (
@@ -1796,7 +1872,7 @@ function USDCxBadge({ size = 20 }) {
   return <img src="/usdc.svg" width={size} height={size} style={{ borderRadius: '50%', flexShrink: 0, display: 'block' }} alt="USDCx" />
 }
 
-function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDisconnect, onWalletSwap }) {
+function ExplorePage({ walletONE = 0, walletYONE = 0, walletConnected, onWalletConnect, onDisconnect, onWalletSwap }) {
   const navigate    = useNavigate()
   const [tab,         setTab]       = useState('Swap')
   const [swapDir,     setSwapDir]   = useState('USDC_TO_ONE')
@@ -1881,13 +1957,13 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
     setSwapDone(true)
   }
 
-  const histFilters = ['All', 'Swap', 'Transfer', 'App']
+  const histFilters = ['All', 'Swap', 'Stake', 'App']
   const allTxns = [...localTxns, ...WALLET_HISTORY]
   const filteredHist = allTxns.filter(tx => {
-    if (histFilter === 'All')      return true
-    if (histFilter === 'Swap')     return tx.icon === 'swap'
-    if (histFilter === 'Transfer') return tx.icon === 'send' || tx.icon === 'receive'
-    if (histFilter === 'App')      return tx.icon === 'app'
+    if (histFilter === 'All')   return true
+    if (histFilter === 'Swap')  return tx.icon === 'swap'
+    if (histFilter === 'Stake') return tx.icon === 'stake' || tx.icon === 'unstake'
+    if (histFilter === 'App')   return tx.icon === 'app' || tx.icon === 'vault' || tx.icon === 'supply' || tx.icon === 'withdraw' || tx.icon === 'borrow' || tx.icon === 'repay'
     return true
   })
 
@@ -2125,20 +2201,55 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
               onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
               <IcoSwapH /> Swap
             </button>
+            <button onClick={() => navigate('/earn')} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 100, background: 'transparent', color: '#7ababa', fontWeight: 700, fontSize: 13, border: '1px solid #1e4040', cursor: 'pointer', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = `${C.teal}55`; e.currentTarget.style.color = C.teal }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#1e4040'; e.currentTarget.style.color = '#7ababa' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              Stake
+            </button>
             <button onClick={() => document.getElementById('ecosystem')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 100, background: 'transparent', color: '#7ababa', fontWeight: 700, fontSize: 13, border: '1px solid #1e4040', cursor: 'pointer', transition: 'all 0.15s' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = `${C.teal}55`; e.currentTarget.style.color = C.teal }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = '#1e4040'; e.currentTarget.style.color = '#7ababa' }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>
               Apps
             </button>
-            {[{ label: 'Send', icon: <IcoSend /> }, { label: 'Receive', icon: <IcoReceive /> }].map(a => (
-              <div key={a.label} className="tip-wrap">
-                <button disabled style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 100, background: 'transparent', color: '#2a5050', fontWeight: 700, fontSize: 13, border: '1px solid #1e4040', cursor: 'not-allowed' }}>
-                  {a.icon} {a.label}
-                </button>
-                <span className="tip">Coming soon</span>
+          </div>
+        </div>
+
+        {/* ── yONE BANNER — promo when empty, position summary when staked ── */}
+        <div onClick={() => navigate('/earn')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, marginBottom: 14, background: 'linear-gradient(135deg, #071e1e 0%, #0a2a2a 100%)', border: '1px solid #1a4040', borderRadius: 14, padding: '18px 24px', cursor: 'pointer', transition: 'border-color 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = '#2a5050'}
+          onMouseLeave={e => e.currentTarget.style.borderColor = '#1a4040'}>
+          {/* Left — icon + text */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: `${C.green}12`, border: `1px solid ${C.green}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <BONEBadge size={28} />
+            </div>
+            {walletYONE > 0 ? (
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: '#4a7878', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 3 }}>Your Stake</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.03em', marginBottom: 2 }}>
+                  {walletYONE.toFixed(2)} <span style={{ fontSize: 14, color: C.green }}>yONE</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#4a7878' }}>≈ {(walletYONE * YONE_RATE).toFixed(2)} ONE · earning yield</div>
               </div>
-            ))}
+            ) : (
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 2 }}>Put your ONE to work</div>
+                <div style={{ fontSize: 12, color: '#4a7878' }}>Auto-compounding yield · No lock-up · No cooldown</div>
+              </div>
+            )}
+          </div>
+          {/* Right — APY + CTA grouped together */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexShrink: 0 }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 11, color: '#4a7878', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 2 }}>Current APY</div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: C.green, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.04em', lineHeight: 1 }}>21.26%</div>
+            </div>
+            <div style={{ width: 1, height: 32, background: '#1a4040' }} />
+            <span style={{ color: C.green, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
+              {walletYONE > 0 ? 'Manage →' : 'Stake ONE →'}
+            </span>
           </div>
         </div>
 
@@ -2315,7 +2426,7 @@ function ExplorePage({ walletONE = 0, walletConnected, onWalletConnect, onDiscon
                             color: isApp ? meta.color : ({ receive: C.green, swap: C.teal, send: '#4a7878' })[tx.icon] || '#4a7878',
                             fontSize: isApp ? 17 : undefined,
                           }}>
-                            {isApp ? meta.emoji : tx.icon === 'receive' ? <IcoReceive /> : tx.icon === 'swap' ? <IcoSwapH /> : <IcoSend />}
+                            {isApp ? meta.emoji : tx.icon === 'receive' ? <IcoReceive /> : tx.icon === 'swap' ? <IcoSwapH /> : tx.icon === 'stake' ? '↑' : tx.icon === 'unstake' ? '↓' : tx.icon === 'vault' ? '◈' : tx.icon === 'supply' ? '+' : tx.icon === 'withdraw' ? '−' : tx.icon === 'borrow' ? '⬖' : tx.icon === 'repay' ? '✓' : <IcoSend />}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -2398,13 +2509,13 @@ function WalletActivityPage() {
   const [histFilter, setHistFilter] = useState('All')
   const [search, setSearch] = useState('')
 
-  const histFilters = ['All', 'Swap', 'Transfer', 'App']
+  const histFilters = ['All', 'Swap', 'Stake', 'App']
   const filtered = WALLET_HISTORY.filter(tx => {
     const matchFilter =
-      histFilter === 'All'      ? true :
-      histFilter === 'Swap'     ? tx.icon === 'swap' :
-      histFilter === 'Transfer' ? (tx.icon === 'send' || tx.icon === 'receive') :
-      histFilter === 'App'      ? tx.icon === 'app' : true
+      histFilter === 'All'   ? true :
+      histFilter === 'Swap'  ? tx.icon === 'swap' :
+      histFilter === 'Stake' ? (tx.icon === 'stake' || tx.icon === 'unstake') :
+      histFilter === 'App'   ? (tx.icon === 'app' || tx.icon === 'vault' || tx.icon === 'supply' || tx.icon === 'withdraw' || tx.icon === 'borrow' || tx.icon === 'repay') : true
     const matchSearch = !search || tx.type.toLowerCase().includes(search.toLowerCase()) || tx.detail.toLowerCase().includes(search.toLowerCase()) || tx.amount.toLowerCase().includes(search.toLowerCase())
     return matchFilter && matchSearch
   })
@@ -2420,7 +2531,7 @@ function WalletActivityPage() {
     <div style={{
       minHeight: 'calc(100vh - 56px)',
       padding: '28px 28px 60px',
-      maxWidth: 820, margin: '0 auto',
+      maxWidth: 980, margin: '0 auto',
     }}>
       <div style={{ marginBottom: 28 }}>
         <button onClick={() => navigate('/explore')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, color: '#4a7878', fontSize: 12, fontWeight: 500, cursor: 'pointer', letterSpacing: '-0.01em', marginBottom: 14 }}
@@ -2548,16 +2659,29 @@ function SitemapPage() {
 
 function AppShell() {
   const loc = useLocation()
-  const isWallet = loc.pathname === '/explore' || loc.pathname === '/wallet/activity'
-  const [connected, setConnected] = useState(false)
-  const [vault,     setVault]     = useState(INITIAL_VAULT)
-  const [walletCC,  setWalletCC]  = useState(100000)
-  const [walletONE, setWalletONE] = useState(0)
+  const isWallet = loc.pathname === '/explore' || loc.pathname === '/wallet/activity' || loc.pathname === '/earn'
+  const [connected,  setConnected]  = useState(false)
+  const [vault,      setVault]      = useState(INITIAL_VAULT)
+  const [walletCC,   setWalletCC]   = useState(100000)
+  const [walletONE,  setWalletONE]  = useState(3250)
+  const [walletYONE, setWalletYONE] = useState(0)
 
   const connect    = () => setConnected(true)
   const disconnect = () => setConnected(false)
 
   const handleWalletSwap = (delta) => setWalletONE(prev => Math.max(0, prev + delta))
+
+  const handleStake = (oneAmt) => {
+    const yoneOut = oneAmt / YONE_RATE
+    setWalletONE(prev  => Math.max(0, prev - oneAmt))
+    setWalletYONE(prev => prev + yoneOut)
+  }
+
+  const handleUnstake = (yoneAmt) => {
+    const oneOut = yoneAmt * YONE_RATE
+    setWalletYONE(prev => Math.max(0, prev - yoneAmt))
+    setWalletONE(prev  => prev + oneOut)
+  }
 
   const handleVaultOpened = ({ ccAmount, borrowAmount, oneDebt }) => {
     setConnected(true)
@@ -2602,9 +2726,9 @@ function AppShell() {
           <Route path="/vault/mint"     element={<VaultMintPage     vault={vault} walletCC={walletCC} walletONE={walletONE} onVaultUpdate={handleVaultUpdate} />} />
           <Route path="/vault/repay"    element={<VaultRepayPage    vault={vault} walletCC={walletCC} walletONE={walletONE} onVaultUpdate={handleVaultUpdate} />} />
           <Route path="/vault/close"    element={<VaultClosePage    vault={vault} walletONE={walletONE} onVaultClose={handleVaultClose} />} />
-          <Route path="/earn"           element={<EarnPage     connected={connected} onConnect={connect} walletONE={walletONE} />} />
+          <Route path="/earn"           element={<EarnPage connected={connected} onConnect={connect} walletONE={walletONE} walletYONE={walletYONE} onStake={handleStake} onUnstake={handleUnstake} />} />
           <Route path="/token"          element={<TokenPage />} />
-          <Route path="/explore"        element={<ExplorePage walletONE={walletONE} walletConnected={connected} onWalletConnect={connect} onDisconnect={disconnect} onWalletSwap={handleWalletSwap} />} />
+          <Route path="/explore"        element={<ExplorePage walletONE={walletONE} walletYONE={walletYONE} walletConnected={connected} onWalletConnect={connect} onDisconnect={disconnect} onWalletSwap={handleWalletSwap} />} />
           <Route path="/wallet/activity" element={<WalletActivityPage />} />
         </Routes>
       </div>
