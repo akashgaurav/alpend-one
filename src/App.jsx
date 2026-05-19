@@ -2177,17 +2177,23 @@ function ExplorePage({ walletONE = 0, walletYONE = 0, walletConnected, onWalletC
                 )}
               </div>
             ) : (
-              <div style={{ background: '#071818', border: '1px solid #0d2424', borderRadius: 12, padding: '14px 18px', minWidth: 230 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+              <div style={{ background: `linear-gradient(135deg, rgba(20,184,166,0.07) 0%, rgba(6,182,212,0.04) 100%)`, border: `1px solid ${C.teal}44`, borderRadius: 12, padding: '14px 18px', minWidth: 230 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <USDCxBadge size={16} />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#4a7878' }}>0.00 USDCx</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.teal }}>0.00 USDCx</span>
                   </div>
                   <button onClick={() => setWalletUSDCx(1000)} style={{ fontSize: 10, color: '#3a6060', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>+ demo</button>
                 </div>
-                <div style={{ fontSize: 12, color: '#2a4848', lineHeight: 1.55 }}>
-                  {isNewUser ? 'Get USDCx on Loop to buy ONE.' : 'Top up USDCx on Loop to swap more ONE.'}
+                <div style={{ fontSize: 12, color: '#7ababa', lineHeight: 1.55, marginBottom: 10 }}>
+                  Add USDCx to your Loop wallet to get started.
                 </div>
+                <a href="https://tradecraft.fi" target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#fff', background: C.teal, padding: '6px 12px', borderRadius: 7, textDecoration: 'none', transition: 'opacity 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+                  Get USDCx on Tradecraft.fi <IcoArrow />
+                </a>
               </div>
             )}
           </div>
