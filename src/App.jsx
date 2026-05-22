@@ -1415,10 +1415,7 @@ function EarnPage({ connected, onConnect, walletONE = 0, walletYONE = 0, onStake
 
   const navigate = useNavigate()
 
-  if (!connected) {
-    navigate('/explore', { replace: true })
-    return null
-  }
+  if (!connected) return <Navigate to="/explore" replace />
 
   return (
     <div className="fade-in" style={{ padding: '32px 28px', maxWidth: 980, margin: '0 auto' }}>
